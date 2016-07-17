@@ -23,7 +23,8 @@ It also includes some sample data output to verify results.
 
 The following code loads the data into a variable `activity`. The script will attempt to download and unzip the file if it doesn't exist inside the work directory.
 
-```{r, echo=TRUE}
+
+```r
 # Download zip file if it doesn't already exist in the workspace
 dataurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 if (!file.exists("activity.zip")) {
@@ -41,21 +42,63 @@ activity <- read.csv(datafile, header = TRUE)
 
 # To prevent scientific notation
 options(scipen = 100)
-
 ```
 
 Let's take a look at the data:
 
-```{r, echo=TRUE}
+
+```r
 dim(activity)
+```
+
+```
+## [1] 17568     3
+```
+
+```r
 str(activity)
+```
+
+```
+## 'data.frame':	17568 obs. of  3 variables:
+##  $ steps   : int  NA NA NA NA NA NA NA NA NA NA ...
+##  $ date    : Factor w/ 61 levels "2012-10-01","2012-10-02",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ interval: int  0 5 10 15 20 25 30 35 40 45 ...
+```
+
+```r
 head(activity)
+```
+
+```
+##   steps       date interval
+## 1    NA 2012-10-01        0
+## 2    NA 2012-10-01        5
+## 3    NA 2012-10-01       10
+## 4    NA 2012-10-01       15
+## 5    NA 2012-10-01       20
+## 6    NA 2012-10-01       25
+```
+
+```r
 summary(activity)
+```
+
+```
+##      steps                date          interval     
+##  Min.   :  0.00   2012-10-01:  288   Min.   :   0.0  
+##  1st Qu.:  0.00   2012-10-02:  288   1st Qu.: 588.8  
+##  Median :  0.00   2012-10-03:  288   Median :1177.5  
+##  Mean   : 37.38   2012-10-04:  288   Mean   :1177.5  
+##  3rd Qu.: 12.00   2012-10-05:  288   3rd Qu.:1766.2  
+##  Max.   :806.00   2012-10-06:  288   Max.   :2355.0  
+##  NA's   :2304     (Other)   :15840
 ```
 
 To prepare the data I'm going to use the `dplyr` package:
 
-```{r, echo=TRUE}
+
+```r
 library(dplyr)
 ```
 
@@ -63,12 +106,10 @@ library(dplyr)
 
 ## What is mean total number of steps taken per day?
 
-```{r, echo=FALSE}
-# to show all, use:
-# as.data.frame(data)
-```
 
-```{r, echo=TRUE}
+
+
+```r
 # Get the total steps per date
 steps_by_date <- select(activity, steps, date, interval) %>%
 	#filter(!is.na(steps)) %>% # removed filter to include NAs as 0-step days in histogram
@@ -76,7 +117,13 @@ steps_by_date <- select(activity, steps, date, interval) %>%
     summarize(total_steps = sum(steps, na.rm = TRUE))
 
 dim(steps_by_date)
-	
+```
+
+```
+## [1] 61  2
+```
+
+```r
 # Plot the histogram
 hist(steps_by_date$total_steps, 
 	main = "Histogram of total steps per day", 
@@ -93,22 +140,31 @@ median_total_steps <- median(steps_by_date$total_steps)
 abline(v = mean_total_steps, lwd = 1, lty = 2, col = "red")
 abline(v = median_total_steps, lwd = 1, lty = 2, col = "red")
 ```
+
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5-1.png)
         
-The mean number of steps taken each day is `r round(mean_total_steps, 0)`, the median number is `r round(median_total_steps, 0)`. 
+The mean number of steps taken each day is 9354, the median number is 10395. 
 These numbers are also indicated with the red dashed lines above.
 		
 
 		
 ## What is the average daily activity pattern?
 
-```{r, echo=TRUE}
+
+```r
 # Get the average number of steps per interval
 steps_by_interval <- select(activity, steps, date, interval) %>% 
 	group_by(interval) %>% 
 	summarize(average_steps = mean(steps, na.rm = TRUE))
 
 dim(steps_by_interval)
-	
+```
+
+```
+## [1] 288   2
+```
+
+```r
 plot(steps_by_interval$interval, steps_by_interval$average_steps, type = "l",
 	main = "Average steps by 5-minute interval",
 	xlab = "Interval",
@@ -126,26 +182,70 @@ abline(v = max_average_steps_interval, lwd = 1, lty = 2, col = "red")
 abline(h = max_average_steps, lwd = 1, lty = 2, col = "red")
 ```
 
+![plot of chunk unnamed-chunk-6](figure/unnamed-chunk-6-1.png)
+
 The average daily activity pattern is shown in the plot above.
-`r max_average_steps_interval` is the 5-minute interval that, on average, contains the maximum number of `r round(max_average_steps)` steps. 
+835 is the 5-minute interval that, on average, contains the maximum number of 206 steps. 
 I have also marked this point with the red dashed lines.
 
 
 
 ## Imputing missing values
 
-Of `r nrow(activity)` total rows, `r nrow(activity[which(is.na(activity$steps)),])` have an NA value instead of a usable number of steps.
+Of 17568 total rows, 2304 have an NA value instead of a usable number of steps.
 My strategy is to replace NA values with the average number of steps for the given 5-minute interval. 
 The average number of steps per interval has already been calculated above, so I'm going to look the averages in `steps_by_interval`.
 
-```{r, echo=TRUE}
+
+```r
 # Sample of some averages in steps_by_interval:
 steps_by_interval[steps_by_interval$interval %in% c(600,1000,2000),]
+```
 
+```
+## Source: local data frame [3 x 2]
+## 
+##   interval average_steps
+##      (int)         (dbl)
+## 1      600      31.49057
+## 2     1000      40.56604
+## 3     2000      19.62264
+```
+
+```r
 # Sample of NAs before replacement:
 head(activity[which(is.na(activity$steps) & activity$interval %in% c(600,1000,2000)),], n = 30)
+```
 
+```
+##       steps       date interval
+## 73       NA 2012-10-01      600
+## 121      NA 2012-10-01     1000
+## 241      NA 2012-10-01     2000
+## 2089     NA 2012-10-08      600
+## 2137     NA 2012-10-08     1000
+## 2257     NA 2012-10-08     2000
+## 9001     NA 2012-11-01      600
+## 9049     NA 2012-11-01     1000
+## 9169     NA 2012-11-01     2000
+## 9865     NA 2012-11-04      600
+## 9913     NA 2012-11-04     1000
+## 10033    NA 2012-11-04     2000
+## 11305    NA 2012-11-09      600
+## 11353    NA 2012-11-09     1000
+## 11473    NA 2012-11-09     2000
+## 11593    NA 2012-11-10      600
+## 11641    NA 2012-11-10     1000
+## 11761    NA 2012-11-10     2000
+## 12745    NA 2012-11-14      600
+## 12793    NA 2012-11-14     1000
+## 12913    NA 2012-11-14     2000
+## 17353    NA 2012-11-30      600
+## 17401    NA 2012-11-30     1000
+## 17521    NA 2012-11-30     2000
+```
 
+```r
 # I tried this mutate statement first, but it updated only the first NA, and left the others alone:
 # updated_activity <- mutate(activity,
 #	steps = ifelse(is.na(steps), 
@@ -169,7 +269,31 @@ for(r in 1:nrow(updated_activity)) {
 head(updated_activity[which(
 	updated_activity$date %in% c("2012-10-01", "2012-10-08", "2012-11-01", "2012-11-04", "2012-11-09", "2012-11-10") & 
 	updated_activity$interval %in% c(600,1000,2000)),], n = 30)
+```
 
+```
+##          steps       date interval
+## 73    31.49057 2012-10-01      600
+## 121   40.56604 2012-10-01     1000
+## 241   19.62264 2012-10-01     2000
+## 2089  31.49057 2012-10-08      600
+## 2137  40.56604 2012-10-08     1000
+## 2257  19.62264 2012-10-08     2000
+## 9001  31.49057 2012-11-01      600
+## 9049  40.56604 2012-11-01     1000
+## 9169  19.62264 2012-11-01     2000
+## 9865  31.49057 2012-11-04      600
+## 9913  40.56604 2012-11-04     1000
+## 10033 19.62264 2012-11-04     2000
+## 11305 31.49057 2012-11-09      600
+## 11353 40.56604 2012-11-09     1000
+## 11473 19.62264 2012-11-09     2000
+## 11593 31.49057 2012-11-10      600
+## 11641 40.56604 2012-11-10     1000
+## 11761 19.62264 2012-11-10     2000
+```
+
+```r
 updated_steps_by_date <- select(updated_activity, steps, date, interval) %>% 
     group_by(date) %>% 
     summarize(total_steps = sum(steps, na.rm = TRUE))
@@ -190,18 +314,21 @@ abline(v = updated_mean_total_steps, lwd = 1, lty = 2, col = "red")
 abline(v = updated_median_total_steps, lwd = 1, lty = 2, col = "red")
 ```
 
+![plot of chunk unnamed-chunk-7](figure/unnamed-chunk-7-1.png)
+
 The large number of 0-step days disappeared from the histogram after replacing 
 the NAs with the average number of steps for a given interval. Also note how mean 
 and median number of steps meet up at the same point now.
-The mean number of steps taken each day is now `r round(updated_mean_total_steps, 0)` 
-(compared to `r round(mean_total_steps, 0)` with NAs), and the median number 
-is `r round(updated_median_total_steps, 0)` now (compared to `r round(median_total_steps, 0)` with NAs). 
+The mean number of steps taken each day is now 10766 
+(compared to 9354 with NAs), and the median number 
+is 10766 now (compared to 10395 with NAs). 
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
-```{r, echo=TRUE, fig.width=10}
+
+```r
 activity_with_weekday <- mutate(updated_activity, 
 	weekday = weekdays(as.Date(updated_activity$date)),
 	weekday_is = as.factor(ifelse(weekday=="Saturday" | weekday=="Sunday", "weekend", "weekday"))
@@ -209,7 +336,33 @@ activity_with_weekday <- mutate(updated_activity,
 
 # Sample of the extended data
 head(select(activity_with_weekday, date, weekday, weekday_is) %>% distinct(date), n = 20)
+```
 
+```
+##          date   weekday weekday_is
+## 1  2012-10-01    Monday    weekday
+## 2  2012-10-02   Tuesday    weekday
+## 3  2012-10-03 Wednesday    weekday
+## 4  2012-10-04  Thursday    weekday
+## 5  2012-10-05    Friday    weekday
+## 6  2012-10-06  Saturday    weekend
+## 7  2012-10-07    Sunday    weekend
+## 8  2012-10-08    Monday    weekday
+## 9  2012-10-09   Tuesday    weekday
+## 10 2012-10-10 Wednesday    weekday
+## 11 2012-10-11  Thursday    weekday
+## 12 2012-10-12    Friday    weekday
+## 13 2012-10-13  Saturday    weekend
+## 14 2012-10-14    Sunday    weekend
+## 15 2012-10-15    Monday    weekday
+## 16 2012-10-16   Tuesday    weekday
+## 17 2012-10-17 Wednesday    weekday
+## 18 2012-10-18  Thursday    weekday
+## 19 2012-10-19    Friday    weekday
+## 20 2012-10-20  Saturday    weekend
+```
+
+```r
 library(lattice) 
 
 # Get average number of steps per weekday/weekend and interval
@@ -225,11 +378,14 @@ xyplot(average_steps ~ interval | weekday_is, data = summary, layout = c(1,2), t
 )
 ```
 
+![plot of chunk unnamed-chunk-8](figure/unnamed-chunk-8-1.png)
+
 Yes, there is a difference in activity patterns between weekdays and weekends.
 It looks like the activities start a little later and more gradually on the weekends. The step volume is also a bit higher throughout the day.
 On weekdays the step volume appears to be higher and increase quicker (more steeply) in the mornings, but remains a little lower throughout the day.
 
-```{r, echo=TRUE}
+
+```r
 # Clean up
 rm(list=ls(all=TRUE)) 
 ```
